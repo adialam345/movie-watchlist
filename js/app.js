@@ -154,11 +154,46 @@ class MovieApp {
     }
 
     async addToWatchlist(movieId) {
-        const movie = await TMDBApi.getMovieDetails(movieId);
-        if (!this.watchlist.find(m => m.id === movie.id)) {
-            this.watchlist.push(movie);
-            this.saveToLocalStorage('watchlist', this.watchlist);
-            this.showTab('watchlist');
+        try {
+            const movie = await TMDBApi.getMovieDetails(movieId);
+            console.log('Adding to watchlist:', movie);
+            
+            const { data, error } = await window.supabase
+                .from('watchlist')
+                .insert([
+                    { 
+                        movie_id: movie.id.toString(),
+                        title: movie.title,
+                        poster_path: movie.poster_path || '',
+                        release_date: movie.release_date || '',
+                        is_watched: false
+                    }
+                ]);
+
+            if (error) throw error;
+            
+            console.log('Insert response:', data);
+            this.loadWatchlist();
+        } catch (error) {
+            console.error('Error adding movie to watchlist:', error);
+        }
+    }
+
+    async loadWatchlist() {
+        console.log('Loading watchlist...');
+        try {
+            const { data, error } = await window.supabase
+                .from('watchlist')
+                .select('*')
+                .eq('is_watched', false);
+
+            if (error) throw error;
+
+            if (data) {
+                this.displayMovies(data, this.watchlistMoviesElement);
+            }
+        } catch (error) {
+            console.error('Error loading watchlist:', error);
         }
     }
 
@@ -197,9 +232,9 @@ class MovieApp {
 
         // Update content if needed
         if (tabName === 'watched') {
-            this.displayMovies(this.watchedMovies, this.watchedMoviesElement);
+            this.loadWatchedMovies();
         } else if (tabName === 'watchlist') {
-            this.displayMovies(this.watchlist, this.watchlistMoviesElement);
+            this.loadWatchlist();
         }
     }
 }
