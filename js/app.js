@@ -108,12 +108,48 @@ class MovieApp {
         }
     }
 
-    async addToWatched(movieId) {
-        const movie = await TMDBApi.getMovieDetails(movieId);
-        if (!this.watchedMovies.find(m => m.id === movie.id)) {
-            this.watchedMovies.push(movie);
-            this.saveToLocalStorage('watchedMovies', this.watchedMovies);
-            this.showTab('watched');
+    async addToWatched(movie) {
+        console.log('Adding movie:', movie);
+
+        try {
+            const { data, error } = await supabase
+                .from('watchlist')
+                .insert([
+                    { 
+                        movie_id: movie.id.toString(),
+                        is_watched: true,
+                        title: movie.title,
+                        poster_path: movie.poster_path,
+                        release_date: movie.release_date
+                    }
+                ]);
+
+            if (error) throw error;
+            
+            console.log('Insert response:', data);
+            
+            this.loadWatchedMovies();
+        } catch (error) {
+            console.error('Error adding movie to watched:', error);
+        }
+    }
+
+    async loadWatchedMovies() {
+        console.log('Loading watched movies...');
+
+        try {
+            const { data, error } = await supabase
+                .from('watchlist')
+                .select('*')
+                .eq('is_watched', true);
+
+            if (error) throw error;
+
+            if (data) {
+                this.displayMovies(data, this.watchedMoviesContainer);
+            }
+        } catch (error) {
+            console.error('Error loading watched movies:', error);
         }
     }
 
