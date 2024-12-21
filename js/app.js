@@ -100,20 +100,26 @@ class MovieApp {
     async getActionButtons(movie, isSearch) {
         if (isSearch) {
             try {
-                // Cek status film di database
-                const { data: watchedMovie } = await window.supabase
+                // Tambahkan header yang benar untuk request
+                const { data: watchedMovie, error: watchedError } = await window.supabase
                     .from('watchlist')
                     .select('*')
                     .eq('movie_id', movie.id.toString())
                     .eq('is_watched', true)
-                    .single();
+                    .maybeSingle(); // Gunakan maybeSingle() alih-alih single()
 
-                const { data: watchlistMovie } = await window.supabase
+                const { data: watchlistMovie, error: watchlistError } = await window.supabase
                     .from('watchlist')
                     .select('*')
                     .eq('movie_id', movie.id.toString())
                     .eq('is_watched', false)
-                    .single();
+                    .maybeSingle(); // Gunakan maybeSingle() alih-alih single()
+
+                // Handle error jika ada
+                if (watchedError || watchlistError) {
+                    console.error('Error checking movie status:', watchedError || watchlistError);
+                    return '';
+                }
 
                 const movieJSON = JSON.stringify(movie).replace(/'/g, "\\'");
                 
@@ -144,10 +150,9 @@ class MovieApp {
                 return '';
             }
         } else {
-            // Untuk tab Watchlist dan Sudah Ditonton
+            // Kode untuk tab Watchlist dan Sudah Ditonton tetap sama
             const movieId = typeof movie.movie_id === 'string' ? movie.movie_id : movie.movie_id.toString();
             if (!movie.is_watched) {
-                // Tampilkan tombol "Sudah Ditonton" dan "Hapus" untuk film di Watchlist
                 return `
                     <button class="action-btn" onclick="app.markAsWatched('${movieId}')">
                         <i class="fas fa-check"></i> Sudah Ditonton
@@ -157,7 +162,6 @@ class MovieApp {
                     </button>
                 `;
             } else {
-                // Tampilkan hanya tombol "Hapus" untuk film yang sudah ditonton
                 return `
                     <button class="action-btn" onclick="app.removeMovie('${movieId}')">
                         <i class="fas fa-trash"></i> Hapus
@@ -170,12 +174,47 @@ class MovieApp {
     async addToWatched(movie) {
         try {
             // Cek apakah film sudah ada di watchlist
-            const { data: watchlistMovie } = await window.supabase
+            const { data: watchlistMovie, error: watchlistError } = await window.supabase
                 .from('watchlist')
                 .select('*')
                 .eq('movie_id', movie.id.toString())
                 .eq('is_watched', false)
-                .single();
+                .maybeSingle();
+
+            if (watchlistError) throw watchlistError;
+
+            // Cek apakah film sudah ada di watched
+            const { data: watchedMovie, error: watchedError } = await window.supabase
+                .from('watchlist')
+                .select('*')
+                .eq('movie_id', movie.id.toString())
+                .eq('is_watched', true)
+                .maybeSingle();
+
+            if (watchedError) throw watchedError;
+
+            if (watchedMovie) {
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #ff9800;
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                alert.textContent = '⚠️ Film ini sudah ada di daftar Sudah Ditonton';
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
+                return;
+            }
 
             if (watchlistMovie) {
                 // Update status film dari watchlist ke watched
@@ -186,7 +225,6 @@ class MovieApp {
 
                 if (updateError) throw updateError;
 
-                // Tampilkan alert sukses dengan styling
                 const alert = document.createElement('div');
                 alert.style.cssText = `
                     position: fixed;
@@ -200,10 +238,9 @@ class MovieApp {
                     z-index: 1000;
                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                 `;
-                alert.textContent = `✅ "${movie.title}" telah dipindahkan ke Sudah Ditonton`;
+                alert.textContent = `✅ "${movie.title}" dipindahkan ke Sudah Ditonton`;
                 document.body.appendChild(alert);
 
-                // Hapus alert setelah 3 detik
                 setTimeout(() => {
                     alert.remove();
                 }, 3000);
@@ -211,17 +248,16 @@ class MovieApp {
                 // Tambahkan film baru ke watched
                 const { error: insertError } = await window.supabase
                     .from('watchlist')
-                    .insert([{ 
+                    .insert([{
                         movie_id: movie.id.toString(),
-                        is_watched: true,
                         title: movie.title,
-                        poster_path: movie.poster_path,
-                        release_date: movie.release_date
+                        poster_path: movie.poster_path || '',
+                        release_date: movie.release_date || '',
+                        is_watched: true
                     }]);
 
                 if (insertError) throw insertError;
 
-                // Tampilkan alert sukses
                 const alert = document.createElement('div');
                 alert.style.cssText = `
                     position: fixed;
@@ -238,17 +274,16 @@ class MovieApp {
                 alert.textContent = `✅ "${movie.title}" ditambahkan ke Sudah Ditonton`;
                 document.body.appendChild(alert);
 
-                // Hapus alert setelah 3 detik
                 setTimeout(() => {
                     alert.remove();
                 }, 3000);
             }
-            
+
+            // Refresh tampilan
             this.loadWatchedMovies();
             this.loadWatchlist();
         } catch (error) {
             console.error('Error adding movie to watched:', error);
-            // Tampilkan alert error
             const alert = document.createElement('div');
             alert.style.cssText = `
                 position: fixed;
@@ -262,7 +297,7 @@ class MovieApp {
                 z-index: 1000;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             `;
-            alert.textContent = '❌ Gagal menambahkan film';
+            alert.textContent = '❌ Gagal menambahkan film ke Sudah Ditonton';
             document.body.appendChild(alert);
 
             setTimeout(() => {
@@ -293,12 +328,14 @@ class MovieApp {
     async addToWatchlist(movieId) {
         try {
             // Cek apakah film sudah ada di watched
-            const { data: watchedMovie } = await window.supabase
+            const { data: watchedMovie, error: watchedError } = await window.supabase
                 .from('watchlist')
                 .select('*')
                 .eq('movie_id', movieId.toString())
                 .eq('is_watched', true)
-                .single();
+                .maybeSingle(); // Gunakan maybeSingle() alih-alih single()
+
+            if (watchedError) throw watchedError;
 
             if (watchedMovie) {
                 const alert = document.createElement('div');
@@ -323,9 +360,42 @@ class MovieApp {
                 return;
             }
 
+            // Cek apakah film sudah ada di watchlist
+            const { data: existingMovie, error: existingError } = await window.supabase
+                .from('watchlist')
+                .select('*')
+                .eq('movie_id', movieId.toString())
+                .eq('is_watched', false)
+                .maybeSingle();
+
+            if (existingError) throw existingError;
+
+            if (existingMovie) {
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #ff9800;
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                alert.textContent = '⚠️ Film ini sudah ada di Watchlist';
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
+                return;
+            }
+
             const movie = await TMDBApi.getMovieDetails(movieId);
             
-            const { error } = await window.supabase
+            const { error: insertError } = await window.supabase
                 .from('watchlist')
                 .insert([{ 
                     movie_id: movie.id.toString(),
@@ -335,7 +405,7 @@ class MovieApp {
                     is_watched: false
                 }]);
 
-            if (error) throw error;
+            if (insertError) throw insertError;
 
             // Tampilkan alert sukses
             const alert = document.createElement('div');
