@@ -1,8 +1,14 @@
 class MovieApp {
     constructor() {
+        this.watchedMovies = JSON.parse(localStorage.getItem('watchedMovies')) || [];
+        this.watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
+        
         this.initializeElements();
         this.addEventListeners();
-        this.checkAuth();
+        
+        // Tampilkan tab pencarian saat pertama kali load
+        document.querySelector('[data-tab="search"]').classList.add('active');
+        document.getElementById('searchResults').classList.add('active');
     }
 
     initializeElements() {
@@ -11,8 +17,6 @@ class MovieApp {
         this.searchResults = document.getElementById('searchResults');
         this.watchedMoviesElement = document.getElementById('watchedMovies');
         this.watchlistMoviesElement = document.getElementById('watchlistMovies');
-        this.loginButton = document.getElementById('loginButton');
-        this.logoutButton = document.getElementById('logoutButton');
     }
 
     addEventListeners() {
@@ -33,9 +37,6 @@ class MovieApp {
                 this.showTab(tabName);
             });
         });
-
-        this.loginButton.addEventListener('click', () => this.handleLogin());
-        this.logoutButton.addEventListener('click', () => this.handleLogout());
     }
 
     async searchMovies() {
@@ -107,148 +108,34 @@ class MovieApp {
         }
     }
 
-    async checkAuth() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            this.handleAuthSuccess(user);
-        }
-    }
-
-    async handleLogin() {
-        try {
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google'
-            });
-            if (error) throw error;
-        } catch (error) {
-            console.error('Error logging in:', error.message);
-        }
-    }
-
-    async handleLogout() {
-        try {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-            this.loginButton.style.display = 'block';
-            this.logoutButton.style.display = 'none';
-            this.watchedMovies = [];
-            this.watchlist = [];
-            this.showTab('search');
-        } catch (error) {
-            console.error('Error logging out:', error.message);
-        }
-    }
-
-    handleAuthSuccess(user) {
-        this.loginButton.style.display = 'none';
-        this.logoutButton.style.display = 'block';
-        this.loadUserData();
-    }
-
-    async loadUserData() {
-        try {
-            // Load watched movies
-            let { data: watched, error } = await supabase
-                .from('watched_movies')
-                .select('movie_data')
-                .eq('user_id', (await supabase.auth.getUser()).data.user.id);
-            
-            if (error) throw error;
-            this.watchedMovies = watched.map(w => w.movie_data);
-
-            // Load watchlist
-            let { data: watchlist, error: watchlistError } = await supabase
-                .from('watchlist')
-                .select('movie_data')
-                .eq('user_id', (await supabase.auth.getUser()).data.user.id);
-            
-            if (watchlistError) throw watchlistError;
-            this.watchlist = watchlist.map(w => w.movie_data);
-
-            this.showTab('watched');
-        } catch (error) {
-            console.error('Error loading user data:', error);
-        }
-    }
-
     async addToWatched(movieId) {
-        try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (!user) {
-                alert('Please login first');
-                return;
-            }
-
-            const movie = await TMDBApi.getMovieDetails(movieId);
-            const { data, error } = await supabase
-                .from('watched_movies')
-                .insert([
-                    {
-                        user_id: user.id,
-                        movie_id: movieId,
-                        movie_data: movie
-                    }
-                ]);
-
-            if (error) throw error;
+        const movie = await TMDBApi.getMovieDetails(movieId);
+        if (!this.watchedMovies.find(m => m.id === movie.id)) {
             this.watchedMovies.push(movie);
+            this.saveToLocalStorage('watchedMovies', this.watchedMovies);
             this.showTab('watched');
-        } catch (error) {
-            console.error('Error adding to watched:', error);
         }
     }
 
     async addToWatchlist(movieId) {
-        try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (!user) {
-                alert('Please login first');
-                return;
-            }
-
-            const movie = await TMDBApi.getMovieDetails(movieId);
-            const { data, error } = await supabase
-                .from('watchlist')
-                .insert([
-                    {
-                        user_id: user.id,
-                        movie_id: movieId,
-                        movie_data: movie
-                    }
-                ]);
-
-            if (error) throw error;
+        const movie = await TMDBApi.getMovieDetails(movieId);
+        if (!this.watchlist.find(m => m.id === movie.id)) {
             this.watchlist.push(movie);
+            this.saveToLocalStorage('watchlist', this.watchlist);
             this.showTab('watchlist');
-        } catch (error) {
-            console.error('Error adding to watchlist:', error);
         }
     }
 
-    async removeMovie(movieId, listType) {
-        try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (!user) return;
+    removeMovie(movieId) {
+        this.watchedMovies = this.watchedMovies.filter(m => m.id !== movieId);
+        this.watchlist = this.watchlist.filter(m => m.id !== movieId);
+        this.saveToLocalStorage('watchedMovies', this.watchedMovies);
+        this.saveToLocalStorage('watchlist', this.watchlist);
+        this.showTab(document.querySelector('.tab-btn.active').dataset.tab);
+    }
 
-            const table = listType === 'watched' ? 'watched_movies' : 'watchlist';
-            const { error } = await supabase
-                .from(table)
-                .delete()
-                .eq('user_id', user.id)
-                .eq('movie_id', movieId);
-
-            if (error) throw error;
-
-            if (listType === 'watched') {
-                this.watchedMovies = this.watchedMovies.filter(m => m.id !== movieId);
-            } else {
-                this.watchlist = this.watchlist.filter(m => m.id !== movieId);
-            }
-            
-            this.showTab(listType);
-        } catch (error) {
-            console.error('Error removing movie:', error);
-        }
+    saveToLocalStorage(key, data) {
+        localStorage.setItem(key, JSON.stringify(data));
     }
 
     showTab(tabName) {
@@ -281,11 +168,5 @@ class MovieApp {
     }
 }
 
-// Initialize auth listener
-supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-        app.handleAuthSuccess(session.user);
-    }
-});
-
+// Initialize the app
 const app = new MovieApp(); 
