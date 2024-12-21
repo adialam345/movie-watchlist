@@ -205,12 +205,25 @@ class MovieApp {
         }
     }
 
-    removeMovie(movieId) {
-        this.watchedMovies = this.watchedMovies.filter(m => m.id !== movieId);
-        this.watchlist = this.watchlist.filter(m => m.id !== movieId);
-        this.saveToLocalStorage('watchedMovies', this.watchedMovies);
-        this.saveToLocalStorage('watchlist', this.watchlist);
-        this.showTab(document.querySelector('.tab-btn.active').dataset.tab);
+    async removeMovie(movieId) {
+        try {
+            const { error } = await window.supabase
+                .from('watchlist')
+                .delete()
+                .eq('movie_id', movieId.toString());
+
+            if (error) throw error;
+
+            // Refresh tampilan sesuai tab yang aktif
+            const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+            if (activeTab === 'watched') {
+                this.loadWatchedMovies();
+            } else if (activeTab === 'watchlist') {
+                this.loadWatchlist();
+            }
+        } catch (error) {
+            console.error('Error removing movie:', error);
+        }
     }
 
     saveToLocalStorage(key, data) {
