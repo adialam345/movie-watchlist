@@ -92,7 +92,7 @@ class MovieApp {
     getActionButtons(movie, isSearch) {
         if (isSearch) {
             return `
-                <button class="action-btn" onclick="app.addToWatched(${movie.id})">
+                <button class="action-btn" onclick="app.addToWatched(${JSON.stringify(movie)})">
                     <i class="fas fa-check"></i> Sudah Ditonton
                 </button>
                 <button class="action-btn" onclick="app.addToWatchlist(${movie.id})">
