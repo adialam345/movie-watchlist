@@ -69,16 +69,18 @@ class MovieApp {
         }
     }
 
-    displayMovies(movies, container, isSearch = false) {
+    async displayMovies(movies, container, isSearch = false) {
         container.innerHTML = '';
         
-        movies.forEach(movie => {
+        for (const movie of movies) {
             const card = document.createElement('div');
             card.className = 'movie-card';
             
             const posterPath = movie.poster_path
                 ? `${IMAGE_BASE_URL}${movie.poster_path}`
                 : 'https://via.placeholder.com/500x750?text=No+Poster';
+
+            const buttons = await this.getActionButtons(movie, isSearch);
 
             card.innerHTML = `
                 <img src="${posterPath}" alt="${movie.title}">
@@ -87,12 +89,12 @@ class MovieApp {
                     <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
                 </div>
                 <div class="movie-actions">
-                    ${this.getActionButtons(movie, isSearch)}
+                    ${buttons}
                 </div>
             `;
 
             container.appendChild(card);
-        });
+        }
     }
 
     getActionButtons(movie, isSearch) {
