@@ -110,9 +110,9 @@ class MovieApp {
 
     async addToWatched(movie) {
         console.log('Adding movie:', movie);
-
+        
         try {
-            const { data, error } = await supabase
+            const { data, error } = await window.supabase
                 .from('watchlist')
                 .insert([
                     { 
@@ -127,7 +127,6 @@ class MovieApp {
             if (error) throw error;
             
             console.log('Insert response:', data);
-            
             this.loadWatchedMovies();
         } catch (error) {
             console.error('Error adding movie to watched:', error);
