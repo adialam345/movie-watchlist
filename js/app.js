@@ -97,20 +97,56 @@ class MovieApp {
         }
     }
 
-    getActionButtons(movie, isSearch) {
+    async getActionButtons(movie, isSearch) {
         if (isSearch) {
-            const movieJSON = JSON.stringify(movie).replace(/'/g, "\\'");
-            return `
-                <button class="action-btn" onclick='app.addToWatched(${movieJSON})'>
-                    <i class="fas fa-check"></i> Sudah Ditonton
-                </button>
-                <button class="action-btn" onclick="app.addToWatchlist(${movie.id})">
-                    <i class="fas fa-clock"></i> Watchlist
-                </button>
-            `;
+            try {
+                // Cek status film di database
+                const { data: watchedMovie } = await window.supabase
+                    .from('watchlist')
+                    .select('*')
+                    .eq('movie_id', movie.id.toString())
+                    .eq('is_watched', true)
+                    .single();
+
+                const { data: watchlistMovie } = await window.supabase
+                    .from('watchlist')
+                    .select('*')
+                    .eq('movie_id', movie.id.toString())
+                    .eq('is_watched', false)
+                    .single();
+
+                const movieJSON = JSON.stringify(movie).replace(/'/g, "\\'");
+                
+                if (watchedMovie) {
+                    return `
+                        <button class="action-btn" disabled>
+                            <i class="fas fa-check"></i> Sudah Ditonton
+                        </button>
+                    `;
+                } else if (watchlistMovie) {
+                    return `
+                        <button class="action-btn" disabled>
+                            <i class="fas fa-clock"></i> Di Watchlist
+                        </button>
+                    `;
+                } else {
+                    return `
+                        <button class="action-btn" onclick='app.addToWatched(${movieJSON})'>
+                            <i class="fas fa-check"></i> Sudah Ditonton
+                        </button>
+                        <button class="action-btn" onclick="app.addToWatchlist(${movie.id})">
+                            <i class="fas fa-clock"></i> Watchlist
+                        </button>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error checking movie status:', error);
+                return '';
+            }
         } else {
+            const movieId = typeof movie.movie_id === 'string' ? movie.movie_id : movie.movie_id.toString();
             return `
-                <button class="action-btn" onclick="app.removeMovie(${movie.id})">
+                <button class="action-btn" onclick="app.removeMovie('${movieId}')">
                     <i class="fas fa-trash"></i> Hapus
                 </button>
             `;
@@ -121,22 +157,41 @@ class MovieApp {
         console.log('Adding movie:', movie);
         
         try {
-            const { data, error } = await window.supabase
+            // Cek apakah film sudah ada di watchlist
+            const { data: watchlistMovie } = await window.supabase
                 .from('watchlist')
-                .insert([
-                    { 
+                .select('*')
+                .eq('movie_id', movie.id.toString())
+                .eq('is_watched', false)
+                .single();
+
+            if (watchlistMovie) {
+                // Update status film dari watchlist ke watched
+                const { error: updateError } = await window.supabase
+                    .from('watchlist')
+                    .update({ is_watched: true })
+                    .eq('movie_id', movie.id.toString());
+
+                if (updateError) throw updateError;
+
+                alert('Film ini telah dipindahkan dari Watchlist ke Sudah Ditonton.');
+            } else {
+                // Tambahkan film baru ke watched
+                const { error: insertError } = await window.supabase
+                    .from('watchlist')
+                    .insert([{ 
                         movie_id: movie.id.toString(),
                         is_watched: true,
                         title: movie.title,
                         poster_path: movie.poster_path,
                         release_date: movie.release_date
-                    }
-                ]);
+                    }]);
 
-            if (error) throw error;
+                if (insertError) throw insertError;
+            }
             
-            console.log('Insert response:', data);
             this.loadWatchedMovies();
+            this.loadWatchlist();
         } catch (error) {
             console.error('Error adding movie to watched:', error);
         }
@@ -163,24 +218,34 @@ class MovieApp {
 
     async addToWatchlist(movieId) {
         try {
+            // Cek apakah film sudah ada di watched
+            const { data: watchedMovie } = await window.supabase
+                .from('watchlist')
+                .select('*')
+                .eq('movie_id', movieId.toString())
+                .eq('is_watched', true)
+                .single();
+
+            if (watchedMovie) {
+                alert('Film ini sudah ada di daftar "Sudah Ditonton" dan tidak dapat ditambahkan ke Watchlist.');
+                return;
+            }
+
             const movie = await TMDBApi.getMovieDetails(movieId);
             console.log('Adding to watchlist:', movie);
             
-            const { data, error } = await window.supabase
+            const { error } = await window.supabase
                 .from('watchlist')
-                .insert([
-                    { 
-                        movie_id: movie.id.toString(),
-                        title: movie.title,
-                        poster_path: movie.poster_path || '',
-                        release_date: movie.release_date || '',
-                        is_watched: false
-                    }
-                ]);
+                .insert([{ 
+                    movie_id: movie.id.toString(),
+                    title: movie.title,
+                    poster_path: movie.poster_path || '',
+                    release_date: movie.release_date || '',
+                    is_watched: false
+                }]);
 
             if (error) throw error;
             
-            console.log('Insert response:', data);
             this.loadWatchlist();
         } catch (error) {
             console.error('Error adding movie to watchlist:', error);
@@ -207,10 +272,11 @@ class MovieApp {
 
     async removeMovie(movieId) {
         try {
+            console.log('Removing movie:', movieId);
             const { error } = await window.supabase
                 .from('watchlist')
                 .delete()
-                .eq('movie_id', movieId.toString());
+                .eq('movie_id', movieId);
 
             if (error) throw error;
 
