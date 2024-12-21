@@ -3,7 +3,13 @@ class MovieApp {
         this.watchedMovies = JSON.parse(localStorage.getItem('watchedMovies')) || [];
         this.watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
         
-        this.initializeElements();
+        this.searchInput = document.getElementById('searchInput');
+        this.searchButton = document.getElementById('searchButton');
+        this.searchResults = document.getElementById('searchResults');
+        this.watchedMoviesContainer = document.getElementById('watchedMovies');
+        this.watchlistMoviesContainer = document.getElementById('watchlistMovies');
+        this.tabButtons = document.querySelectorAll('.tab-btn');
+
         this.addEventListeners();
         
         // Tampilkan tab pencarian saat pertama kali load
@@ -15,8 +21,8 @@ class MovieApp {
         this.searchInput = document.getElementById('searchInput');
         this.searchButton = document.getElementById('searchButton');
         this.searchResults = document.getElementById('searchResults');
-        this.watchedMoviesElement = document.getElementById('watchedMovies');
-        this.watchlistMoviesElement = document.getElementById('watchlistMovies');
+        this.watchedMoviesContainer = document.getElementById('watchedMovies');
+        this.watchlistMoviesContainer = document.getElementById('watchlistMovies');
     }
 
     addEventListeners() {
@@ -31,9 +37,9 @@ class MovieApp {
         });
 
         // Event listener untuk tab buttons
-        document.querySelectorAll('.tab-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const tabName = e.target.dataset.tab;
+        this.tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.tab;
                 this.showTab(tabName);
             });
         });
@@ -136,9 +142,8 @@ class MovieApp {
 
     async loadWatchedMovies() {
         console.log('Loading watched movies...');
-
         try {
-            const { data, error } = await supabase
+            const { data, error } = await window.supabase
                 .from('watchlist')
                 .select('*')
                 .eq('is_watched', true);
@@ -150,6 +155,7 @@ class MovieApp {
             }
         } catch (error) {
             console.error('Error loading watched movies:', error);
+            this.watchedMoviesContainer.innerHTML = '<p>Error loading movies</p>';
         }
     }
 
@@ -190,7 +196,7 @@ class MovieApp {
             if (error) throw error;
 
             if (data) {
-                this.displayMovies(data, this.watchlistMoviesElement);
+                this.displayMovies(data, this.watchlistMoviesContainer);
             }
         } catch (error) {
             console.error('Error loading watchlist:', error);
