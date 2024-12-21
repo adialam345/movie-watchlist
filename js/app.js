@@ -144,18 +144,30 @@ class MovieApp {
                 return '';
             }
         } else {
+            // Untuk tab Watchlist dan Sudah Ditonton
             const movieId = typeof movie.movie_id === 'string' ? movie.movie_id : movie.movie_id.toString();
-            return `
-                <button class="action-btn" onclick="app.removeMovie('${movieId}')">
-                    <i class="fas fa-trash"></i> Hapus
-                </button>
-            `;
+            if (!movie.is_watched) {
+                // Tampilkan tombol "Sudah Ditonton" dan "Hapus" untuk film di Watchlist
+                return `
+                    <button class="action-btn" onclick="app.markAsWatched('${movieId}')">
+                        <i class="fas fa-check"></i> Sudah Ditonton
+                    </button>
+                    <button class="action-btn" onclick="app.removeMovie('${movieId}')">
+                        <i class="fas fa-trash"></i> Hapus
+                    </button>
+                `;
+            } else {
+                // Tampilkan hanya tombol "Hapus" untuk film yang sudah ditonton
+                return `
+                    <button class="action-btn" onclick="app.removeMovie('${movieId}')">
+                        <i class="fas fa-trash"></i> Hapus
+                    </button>
+                `;
+            }
         }
     }
 
     async addToWatched(movie) {
-        console.log('Adding movie:', movie);
-        
         try {
             // Cek apakah film sudah ada di watchlist
             const { data: watchlistMovie } = await window.supabase
@@ -174,7 +186,27 @@ class MovieApp {
 
                 if (updateError) throw updateError;
 
-                alert('Film ini telah dipindahkan dari Watchlist ke Sudah Ditonton.');
+                // Tampilkan alert sukses dengan styling
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #4CAF50;
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                alert.textContent = `✅ "${movie.title}" telah dipindahkan ke Sudah Ditonton`;
+                document.body.appendChild(alert);
+
+                // Hapus alert setelah 3 detik
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
             } else {
                 // Tambahkan film baru ke watched
                 const { error: insertError } = await window.supabase
@@ -188,12 +220,54 @@ class MovieApp {
                     }]);
 
                 if (insertError) throw insertError;
+
+                // Tampilkan alert sukses
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #4CAF50;
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                alert.textContent = `✅ "${movie.title}" ditambahkan ke Sudah Ditonton`;
+                document.body.appendChild(alert);
+
+                // Hapus alert setelah 3 detik
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
             }
             
             this.loadWatchedMovies();
             this.loadWatchlist();
         } catch (error) {
             console.error('Error adding movie to watched:', error);
+            // Tampilkan alert error
+            const alert = document.createElement('div');
+            alert.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #f44336;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+            alert.textContent = '❌ Gagal menambahkan film';
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
         }
     }
 
@@ -227,12 +301,29 @@ class MovieApp {
                 .single();
 
             if (watchedMovie) {
-                alert('Film ini sudah ada di daftar "Sudah Ditonton" dan tidak dapat ditambahkan ke Watchlist.');
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #ff9800;
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                alert.textContent = '⚠️ Film ini sudah ada di daftar Sudah Ditonton';
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
                 return;
             }
 
             const movie = await TMDBApi.getMovieDetails(movieId);
-            console.log('Adding to watchlist:', movie);
             
             const { error } = await window.supabase
                 .from('watchlist')
@@ -245,10 +336,51 @@ class MovieApp {
                 }]);
 
             if (error) throw error;
+
+            // Tampilkan alert sukses
+            const alert = document.createElement('div');
+            alert.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #4CAF50;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+            alert.textContent = `✅ "${movie.title}" ditambahkan ke Watchlist`;
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
             
             this.loadWatchlist();
         } catch (error) {
             console.error('Error adding movie to watchlist:', error);
+            // Tampilkan alert error
+            const alert = document.createElement('div');
+            alert.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #f44336;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+            alert.textContent = '❌ Gagal menambahkan film ke Watchlist';
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
         }
     }
 
@@ -322,6 +454,72 @@ class MovieApp {
             this.loadWatchedMovies();
         } else if (tabName === 'watchlist') {
             this.loadWatchlist();
+        }
+    }
+
+    // Tambahkan method baru untuk menandai film sebagai sudah ditonton
+    async markAsWatched(movieId) {
+        try {
+            const { data: movie } = await window.supabase
+                .from('watchlist')
+                .select('*')
+                .eq('movie_id', movieId)
+                .single();
+
+            if (!movie) throw new Error('Movie not found');
+
+            const { error } = await window.supabase
+                .from('watchlist')
+                .update({ is_watched: true })
+                .eq('movie_id', movieId);
+
+            if (error) throw error;
+
+            // Tampilkan alert sukses
+            const alert = document.createElement('div');
+            alert.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #4CAF50;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+            alert.textContent = `✅ "${movie.title}" telah dipindahkan ke Sudah Ditonton`;
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+
+            // Refresh tampilan
+            this.loadWatchedMovies();
+            this.loadWatchlist();
+        } catch (error) {
+            console.error('Error marking movie as watched:', error);
+            const alert = document.createElement('div');
+            alert.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #f44336;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                z-index: 1000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+            alert.textContent = '❌ Gagal memperbarui status film';
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
         }
     }
 }
